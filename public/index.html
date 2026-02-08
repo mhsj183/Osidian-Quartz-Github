@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Obsidian-Quartz-Github</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Obsidian-Quartz-Github</h1>
+      <p class="subtitle">同步、发布与自动化管理</p>
+    </header>
+
+    <!-- 上次发布公告栏（默认展示） -->
+    <div id="last-publish-bulletin" class="bulletin" aria-live="polite">
+      <span class="bulletin-icon" aria-hidden="true">📢</span>
+      <span id="last-publish-bulletin-text" class="bulletin-text">上次发布：暂无记录</span>
+    </div>
+
+    <!-- 标签栏 -->
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="ops" role="tab" aria-selected="true">主页</button>
+      <button type="button" class="tab" data-tab="config" role="tab" aria-selected="false">配置</button>
+      <button type="button" class="tab" data-tab="logs" role="tab" aria-selected="false">日志</button>
+    </nav>
+
+    <!-- 第一页：主页 -->
+    <div id="panel-ops" class="tab-panel active" role="tabpanel">
+      <div class="panel-group">
+        <section class="actions">
+          <h2>操作</h2>
+          <div class="btn-group btn-group-divided">
+            <button id="btn-sync" class="btn btn-primary">立即同步</button>
+            <span class="btn-divider" aria-hidden="true"></span>
+            <div class="btn-group-item">
+              <span class="watcher-title">自动同步</span>
+              <span class="tooltip-wrap" aria-label="自动同步说明">
+                <span class="tooltip-icon" aria-hidden="true">ⓘ</span>
+                <span class="tooltip-content">当 Obsidian 中 md 文件的「可发布」属性变更时，自动执行同步</span>
+              </span>
+              <label class="toggle">
+                <input type="checkbox" id="watcher-toggle">
+                <span class="toggle-slider"></span>
+                <span class="toggle-label" id="watcher-label">关闭</span>
+              </label>
+            </div>
+            <span class="btn-divider" aria-hidden="true"></span>
+            <button id="btn-publish" class="btn btn-primary">立即发布</button>
+            <span class="btn-divider" aria-hidden="true"></span>
+            <button id="btn-sync-publish" class="btn btn-accent">同步并发布</button>
+          </div>
+          <div id="error-area" class="error-area hidden"></div>
+          <div id="running" class="running hidden">任务执行中...</div>
+        </section>
+      </div>
+      <div class="panel-group">
+        <section class="preview-core">
+          <div class="preview-header">
+            <h2>预览
+              <span class="tooltip-wrap" aria-label="预览说明">
+                <span class="tooltip-icon" aria-hidden="true">ⓘ</span>
+                <span class="tooltip-content">实时展示当前 Quartz 站点效果（经本面板代理，同源加载）。若显示「未启动」提示，请先进入 quartz 目录再执行：cd quartz，然后 npx quartz build --serve --port 8082 --wsPort 3004，最后刷新本页。</span>
+              </span>
+            </h2>
+            <button type="button" id="btn-refresh-preview" class="btn btn-primary">刷新</button>
+          </div>
+          <div class="preview-wrap">
+            <iframe id="quartz-preview" src="/quartz-preview/" title="预览"></iframe>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- 第二页：配置 -->
+    <div id="panel-config" class="tab-panel config-panel" role="tabpanel">
+      <div class="config-grid">
+      <section class="config">
+        <h2>项目目录</h2>
+        <p class="desc">通过资源管理器选择 Obsidian 与 Quartz 内容目录</p>
+        <div class="config-form">
+          <div class="config-row">
+            <label>Obsidian项目</label>
+            <div class="config-path-row">
+              <input type="text" id="config-obsidian" class="config-path" readonly placeholder="未选择">
+              <button type="button" id="btn-pick-obsidian" class="btn btn-primary btn-pick">选择目录</button>
+            </div>
+          </div>
+          <div class="config-row">
+            <label>Quartz项目</label>
+            <div class="config-path-row">
+              <input type="text" id="config-quartz" class="config-path" readonly placeholder="未选择">
+              <button type="button" id="btn-pick-quartz" class="btn btn-primary btn-pick">选择目录</button>
+            </div>
+          </div>
+          <span id="config-msg" class="config-msg"></span>
+        </div>
+      </section>
+      <section class="cron-section">
+        <h2>定时发布</h2>
+        <p class="desc">设置每天自动执行「同步 + 发布」的时间（整点）。</p>
+        <div class="cron-form">
+          <div class="config-row">
+            <label>每天几点执行</label>
+            <div class="cron-row">
+              <select id="config-cron-hour" class="cron-select" aria-label="选择执行小时" title="选择后自动保存">
+                <option value="0">00:00</option>
+                <option value="1">01:00</option>
+                <option value="2" selected>02:00</option>
+                <option value="3">03:00</option>
+                <option value="4">04:00</option>
+                <option value="5">05:00</option>
+                <option value="6">06:00</option>
+                <option value="7">07:00</option>
+                <option value="8">08:00</option>
+                <option value="9">09:00</option>
+                <option value="10">10:00</option>
+                <option value="11">11:00</option>
+                <option value="12">12:00</option>
+                <option value="13">13:00</option>
+                <option value="14">14:00</option>
+                <option value="15">15:00</option>
+                <option value="16">16:00</option>
+                <option value="17">17:00</option>
+                <option value="18">18:00</option>
+                <option value="19">19:00</option>
+                <option value="20">20:00</option>
+                <option value="21">21:00</option>
+                <option value="22">22:00</option>
+                <option value="23">23:00</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="status-grid">
+          <div class="status-item">
+            <span class="label">下次执行</span>
+            <span id="next-cron" class="value">-</span>
+            <span id="cron-result" class="result"></span>
+          </div>
+        </div>
+      </section>
+      </div>
+    </div>
+
+    <!-- 第三页：日志 -->
+    <div id="panel-logs" class="tab-panel" role="tabpanel">
+      <section class="logs-section">
+        <h2>日志列表</h2>
+        <div class="logs-wrap">
+          <table class="logs-table" id="logs-table">
+            <thead>
+              <tr>
+                <th>操作类型</th>
+                <th>操作时间</th>
+                <th>操作结果</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <!-- 由 JS 填充 -->
+            </tbody>
+          </table>
+          <p id="logs-empty" class="logs-empty hidden">暂无记录</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

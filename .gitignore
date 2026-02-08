@@ -1,0 +1,6 @@
+node_modules/
+.dashboard-state.json
+# 同步状态由本工具维护，不提交
+.obsidian-sync-manifest.json
+# 本地路径配置，不提交（可复制 config.example.json 为 config.json 后修改）
+config.json

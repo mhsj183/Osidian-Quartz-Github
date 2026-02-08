@@ -1,0 +1,17 @@
+{
+  "name": "obsidian-quartz-dashboard",
+  "version": "1.0.0",
+  "description": "Web dashboard for Obsidian-Quartz sync and publish",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "start:watch": "AUTO_WATCH=1 AUTO_QUARTZ_PREVIEW=1 node server.mjs",
+    "preview": "AUTO_WATCH=1 AUTO_QUARTZ_PREVIEW=1 node server.mjs"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "express": "^4.21.0",
+    "node-cron": "^3.0.3"
+  }
+}
