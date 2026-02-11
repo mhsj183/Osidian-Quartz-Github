@@ -73,6 +73,20 @@ function extractAssetRefs(content) {
   return [...refs];
 }
 
+// Quartz 的 slugifyFilePath 会把空格等字符替换为连字符，输出的图片路径与源文件名不一致。
+// 同步时使用相同的 slugify 规则，确保 markdown 中的引用与 Quartz 构建后的实际路径一致。
+function slugifyBasename(basename) {
+  const ext = path.extname(basename);
+  const base = basename.slice(0, -ext.length);
+  const slug = base
+    .replace(/\s/g, "-")
+    .replace(/&/g, "-and-")
+    .replace(/%/g, "-percent")
+    .replace(/\?/g, "")
+    .replace(/#/g, "");
+  return slug + ext;
+}
+
 // Resolve asset path in obsidian: first image/, then same dir as md
 function resolveAssetPath(obsidianDir, mdDir, ref) {
   const base = path.join(obsidianDir, mdDir);
@@ -82,14 +96,35 @@ function resolveAssetPath(obsidianDir, mdDir, ref) {
 }
 
 async function findAssetFile(obsidianDir, mdDir, ref) {
-  const { inImage, inSameDir } = resolveAssetPath(obsidianDir, mdDir, ref);
-  for (const p of [inImage, inSameDir]) {
+  const basename = path.basename(ref);
+  const slugified = slugifyBasename(basename);
+  const imageDir = path.join(obsidianDir, "image");
+  const base = path.join(obsidianDir, mdDir);
+  const candidates = [
+    path.join(imageDir, basename),
+    path.join(base, ref),
+    path.join(imageDir, slugified),
+  ];
+  // 额外：在 image 目录下按 slugify 名模糊匹配（处理 Obsidian 粘贴命名差异）
+  for (const p of candidates) {
     try {
       await fs.access(p);
       return p;
     } catch {
       // continue
     }
+  }
+  // 最后尝试：遍历 image 目录，按 slugify 后的 basename 匹配
+  try {
+    const files = await fs.readdir(imageDir);
+    const wantSlug = slugified.toLowerCase();
+    for (const f of files) {
+      if (slugifyBasename(f).toLowerCase() === wantSlug) {
+        return path.join(imageDir, f);
+      }
+    }
+  } catch {
+    // ignore
   }
   return null;
 }
@@ -124,7 +159,8 @@ async function getPublishableSet(obsidianDir) {
       const assetPath = await findAssetFile(obsidianDir, mdDir, ref);
       if (assetPath) {
         const basename = path.basename(ref);
-        resolvedAssets.push({ ref, basename, sourcePath: assetPath });
+        const slugifiedBasename = slugifyBasename(basename);
+        resolvedAssets.push({ ref, basename, slugifiedBasename, sourcePath: assetPath });
       }
     }
     result.set(rel, {
@@ -138,16 +174,17 @@ async function getPublishableSet(obsidianDir) {
 
 function convertContentForQuartz(content, assets) {
   let out = content;
-  for (const { ref, basename } of assets) {
+  for (const { ref, slugifiedBasename } of assets) {
     const wiki = `![[${ref}]]`;
-    const replacement = `![](../image/${basename})`;
+    const replacement = `![](../image/${slugifiedBasename})`;
     out = out.split(wiki).join(replacement);
   }
-  // Also replace any remaining ![[...]] that might use same basename
+  // Also replace any remaining ![[...]] that might use same basename (fallback to slugify)
   const wikiGlobal = /!\[\[([^\]]+)\]\]/g;
   out = out.replace(wikiGlobal, (_, inner) => {
     const base = path.basename(inner.trim());
-    return `![](../image/${base})`;
+    const slugified = slugifyBasename(base);
+    return `![](../image/${slugified})`;
   });
   return out;
 }
@@ -183,7 +220,7 @@ async function run() {
   const toDeleteMd = Object.keys(entries).filter((rel) => !publishable.has(rel));
   const assetsStillReferenced = new Set();
   for (const [, data] of publishable) {
-    for (const a of data.assets) assetsStillReferenced.add(`image/${a.basename}`);
+    for (const a of data.assets) assetsStillReferenced.add(`image/${a.slugifiedBasename}`);
   }
   for (const rel of toDeleteMd) {
     const quartzMdPath = path.join(QUARTZ_CONTENT_DIR, rel);
@@ -224,7 +261,12 @@ async function run() {
     const prev = entries[rel];
     const isNew = !prev;
     const isUpdated = prev && data.mtime > prev.mtime;
-    if (!isNew && !isUpdated) {
+    const prevAssets = new Set(prev?.assets || []);
+    const currAssets = new Set(data.assets.map((a) => `image/${a.slugifiedBasename}`));
+    const assetsChanged =
+      prevAssets.size !== currAssets.size ||
+      [...currAssets].some((a) => !prevAssets.has(a));
+    if (!isNew && !isUpdated && !assetsChanged) {
       newEntries[rel] = prev;
       continue;
     }
@@ -234,10 +276,10 @@ async function run() {
     await fs.mkdir(quartzMdDir, { recursive: true });
 
     const assetPathsInContent = [];
-    for (const { basename, sourcePath } of data.assets) {
-      const destPath = path.join(contentImageDir, basename);
+    for (const { slugifiedBasename, sourcePath } of data.assets) {
+      const destPath = path.join(contentImageDir, slugifiedBasename);
       await fs.copyFile(sourcePath, destPath);
-      assetPathsInContent.push(`image/${basename}`);
+      assetPathsInContent.push(`image/${slugifiedBasename}`);
     }
 
     const converted = convertContentForQuartz(data.content, data.assets);
